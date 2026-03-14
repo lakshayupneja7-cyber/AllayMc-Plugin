@@ -30,6 +30,30 @@ public class ExileService {
         this.messageUtil = messageUtil;
     }
 
+    public void disableVanillaWorldBorder() {
+        String worldName = plugin.getConfig().getString("server-border.world", "world");
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            plugin.getLogger().warning("Could not disable vanilla world border: world not found: " + worldName);
+            return;
+        }
+
+        WorldBorder border = world.getWorldBorder();
+        border.setCenter(
+                plugin.getConfig().getDouble("server-border.center-x", 0.0),
+                plugin.getConfig().getDouble("server-border.center-z", 0.0)
+        );
+
+        // Make vanilla border effectively irrelevant
+        border.setSize(5.9999968E7); // Minecraft max-ish world border size
+        border.setDamageAmount(0.0);
+        border.setDamageBuffer(5.9999968E7);
+        border.setWarningDistance(0);
+        border.setWarningTime(0);
+
+        plugin.getLogger().info("Vanilla world border disabled for custom donut border system.");
+    }
+
     public void startTimerTask() {
         long periodTicks = Math.max(20L, plugin.getConfig().getLong("settings.timer-check-seconds", 1) * 20L);
 
@@ -152,7 +176,7 @@ public class ExileService {
             loadExileInventory(player, data);
         }
 
-        Location exileLocation = getOrCreateExileLocation(data);
+        Location exileLocation = generateRandomExileLocation();
         if (exileLocation == null) {
             player.sendMessage(ChatColor.RED + "Could not find a safe exile location.");
             return;
@@ -275,7 +299,7 @@ public class ExileService {
 
         Location exileLoc = deserializeLocation(data.getExileLocation());
         if (exileLoc == null) {
-            exileLoc = getOrCreateExileLocation(data);
+            exileLoc = generateRandomExileLocation();
             if (exileLoc != null) {
                 data.setExileLocation(serializeLocation(exileLoc));
             }
@@ -387,14 +411,6 @@ public class ExileService {
         float pitch = (float) plugin.getConfig().getDouble("return-location.pitch");
 
         return new Location(world, x, y, z, yaw, pitch);
-    }
-
-    private Location getOrCreateExileLocation(ExileData data) {
-        Location saved = deserializeLocation(data.getExileLocation());
-        if (saved != null) {
-            return saved;
-        }
-        return generateRandomExileLocation();
     }
 
     private Location generateRandomExileLocation() {
