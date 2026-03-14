@@ -2,6 +2,7 @@ package com.allaymc.exile;
 
 import com.allaymc.exile.command.ExileCommand;
 import com.allaymc.exile.data.PlayerDataManager;
+import com.allaymc.exile.listener.BorderEnforcementListener;
 import com.allaymc.exile.listener.PlayerJoinQuitListener;
 import com.allaymc.exile.listener.PlayerRespawnListener;
 import com.allaymc.exile.service.ExileService;
@@ -37,6 +38,7 @@ public class AllayMcPlugin extends JavaPlugin {
         registerCommands();
         registerListeners();
 
+        exileService.disableVanillaWorldBorder();
         exileService.startTimerTask();
         exileService.startDangerZoneTask();
 
@@ -80,6 +82,9 @@ public class AllayMcPlugin extends JavaPlugin {
         );
         getServer().getPluginManager().registerEvents(
                 new PlayerRespawnListener(this, exileService, playerDataManager), this
+        );
+        getServer().getPluginManager().registerEvents(
+                new BorderEnforcementListener(exileService), this
         );
     }
 
