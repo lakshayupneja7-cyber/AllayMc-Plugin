@@ -6,7 +6,6 @@ import com.allaymc.exile.data.PlayerDataManager;
 import com.allaymc.exile.util.InventoryUtil;
 import com.allaymc.exile.util.MessageUtil;
 import com.allaymc.exile.util.TimeUtil;
-import net.kyori.adventure.text.Component;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -23,6 +22,7 @@ public class ExileService {
     private final PlayerDataManager playerDataManager;
     private final MessageUtil messageUtil;
     private final Map<UUID, Long> lastDangerWarn = new HashMap<>();
+    private final Map<UUID, Long> lastBarrierWarn = new HashMap<>();
 
     public ExileService(AllayMcPlugin plugin, PlayerDataManager playerDataManager, MessageUtil messageUtil) {
         this.plugin = plugin;
@@ -39,19 +39,14 @@ public class ExileService {
         }
 
         WorldBorder border = world.getWorldBorder();
-        border.setCenter(
-                plugin.getConfig().getDouble("server-border.center-x", 0.0),
-                plugin.getConfig().getDouble("server-border.center-z", 0.0)
-        );
-
-        // Make vanilla border effectively irrelevant
-        border.setSize(5.9999968E7); // Minecraft max-ish world border size
+        border.setCenter(0.0, 0.0);
+        border.setSize(5.9999968E7);
         border.setDamageAmount(0.0);
         border.setDamageBuffer(5.9999968E7);
         border.setWarningDistance(0);
         border.setWarningTime(0);
 
-        plugin.getLogger().info("Vanilla world border disabled for custom donut border system.");
+        plugin.getLogger().info("Vanilla world border disabled for custom border system.");
     }
 
     public void startTimerTask() {
@@ -78,33 +73,25 @@ public class ExileService {
         long periodTicks = Math.max(20L, plugin.getConfig().getLong("danger-zone.apply-every-seconds", 1) * 20L);
 
         Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            String mainWorldName = plugin.getConfig().getString("server-border.world", "world");
-            World mainWorld = Bukkit.getWorld(mainWorldName);
-            if (mainWorld == null) {
-                return;
-            }
+            String worldName = plugin.getConfig().getString("server-border.world", "world");
+            World world = Bukkit.getWorld(worldName);
+            if (world == null) return;
 
-            for (Player player : mainWorld.getPlayers()) {
+            for (Player player : world.getPlayers()) {
                 if (isInDangerZone(player.getLocation())) {
                     double damage = plugin.getConfig().getDouble("danger-zone.damage-per-tick", 8.0);
                     player.damage(damage);
 
-                    String actionbar = messageUtil.color(plugin.getConfig().getString(
-                            "danger-zone.warning-actionbar",
-                            "&4LEAVE THE FORBIDDEN ZONE"
-                    ));
-                    player.sendActionBar(Component.text(actionbar));
-
                     long now = System.currentTimeMillis();
-                    long warnIntervalMs = plugin.getConfig().getLong("danger-zone.warn-every-seconds", 3) * 1000L;
+                    long warnEvery = plugin.getConfig().getLong("danger-zone.warn-every-seconds", 3) * 1000L;
                     long last = lastDangerWarn.getOrDefault(player.getUniqueId(), 0L);
 
-                    if (now - last >= warnIntervalMs) {
-                        String warnMessage = messageUtil.color(plugin.getConfig().getString(
+                    if (now - last >= warnEvery) {
+                        player.sendMessage(messageUtil.color(plugin.getConfig().getString(
                                 "danger-zone.warning-message",
                                 "&cYou are in the forbidden zone between the server border and exile border!"
-                        ));
-                        player.sendMessage(warnMessage);
+                        )));
+                        player.playSound(player.getLocation(), Sound.ENTITY_WITHER_HURT, SoundCategory.PLAYERS, 0.8f, 0.7f);
                         lastDangerWarn.put(player.getUniqueId(), now);
                     }
                 }
@@ -112,24 +99,89 @@ public class ExileService {
         }, 20L, periodTicks);
     }
 
-    public boolean isInDangerZone(Location location) {
+    public boolean isInsideMainBorder(Location location) {
         if (location == null || location.getWorld() == null) return false;
+        String worldName = plugin.getConfig().getString("server-border.world", "world");
+        if (!location.getWorld().getName().equalsIgnoreCase(worldName)) return false;
 
-        String mainWorldName = plugin.getConfig().getString("server-border.world", "world");
-        if (!location.getWorld().getName().equalsIgnoreCase(mainWorldName)) {
-            return false;
-        }
+        double centerX = plugin.getConfig().getDouble("server-border.center-x", 0.0);
+        double centerZ = plugin.getConfig().getDouble("server-border.center-z", 0.0);
+        double halfSize = getGlobalServerBorderSize() / 2.0;
 
-        double radius = distanceFromConfiguredCenter(
-                location,
-                plugin.getConfig().getDouble("server-border.center-x", 0.0),
-                plugin.getConfig().getDouble("server-border.center-z", 0.0)
-        );
+        return Math.abs(location.getX() - centerX) <= halfSize &&
+                Math.abs(location.getZ() - centerZ) <= halfSize;
+    }
 
-        double safeMainRadius = plugin.getConfig().getDouble("server-border.start-size-blocks", 6400.0) / 2.0;
+    public boolean isOutsideExileBorder(Location location) {
+        if (location == null || location.getWorld() == null) return false;
+        String worldName = plugin.getConfig().getString("exile-border.world", "world");
+        if (!location.getWorld().getName().equalsIgnoreCase(worldName)) return false;
+
         double exileRadius = plugin.getConfig().getDouble("exile-border.radius-blocks", 2000000.0);
 
-        return radius > safeMainRadius && radius < exileRadius;
+        return Math.abs(location.getX()) >= exileRadius &&
+                Math.abs(location.getZ()) >= exileRadius;
+    }
+
+    public boolean isInDangerZone(Location location) {
+        if (location == null || location.getWorld() == null) return false;
+        String worldName = plugin.getConfig().getString("server-border.world", "world");
+        if (!location.getWorld().getName().equalsIgnoreCase(worldName)) return false;
+
+        return !isInsideMainBorder(location) && !isOutsideExileBorder(location);
+    }
+
+    public void showMainBorderHit(Player player, Location attempted) {
+        showBarrierFeedback(player, attempted, true, false);
+    }
+
+    public void showExileBorderHit(Player player, Location attempted, boolean exiledPlayer) {
+        showBarrierFeedback(player, attempted, false, exiledPlayer);
+    }
+
+    private void showBarrierFeedback(Player player, Location attempted, boolean mainBorder, boolean exiledPlayer) {
+        if (!plugin.getConfig().getBoolean("barrier.enabled", true)) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        long warnEvery = plugin.getConfig().getLong("barrier.warn-every-ms", 1200L);
+        long last = lastBarrierWarn.getOrDefault(player.getUniqueId(), 0L);
+
+        if (now - last < warnEvery) {
+            return;
+        }
+
+        String message;
+        if (mainBorder) {
+            message = plugin.getConfig().getString("barrier.main-message", "&cA mysterious force blocks you at the server border.");
+        } else {
+            message = exiledPlayer
+                    ? plugin.getConfig().getString("barrier.exile-message-exiled", "&cThe exile border rejects your return.")
+                    : plugin.getConfig().getString("barrier.exile-message-normal", "&cThe exile lands reject you.");
+        }
+
+        player.sendMessage(messageUtil.color(message));
+
+        if (plugin.getConfig().getBoolean("barrier.sounds", true)) {
+            player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, SoundCategory.PLAYERS, 0.9f, 1.5f);
+        }
+
+        if (plugin.getConfig().getBoolean("barrier.particles", true)) {
+            spawnBarrierEffect(player, attempted, mainBorder);
+        }
+
+        lastBarrierWarn.put(player.getUniqueId(), now);
+    }
+
+    private void spawnBarrierEffect(Player player, Location attempted, boolean mainBorder) {
+        World world = player.getWorld();
+        Particle particle = mainBorder ? Particle.END_ROD : Particle.ELECTRIC_SPARK;
+
+        double yBase = player.getLocation().getY();
+        for (double y = yBase - 0.5; y <= yBase + 2.5; y += 0.35) {
+            world.spawnParticle(particle, attempted.getX(), y, attempted.getZ(), 8, 0.15, 0.05, 0.15, 0.0);
+        }
     }
 
     public double getGlobalServerBorderSize() {
@@ -418,24 +470,20 @@ public class ExileService {
         World world = Bukkit.getWorld(worldName);
         if (world == null) return null;
 
-        double centerX = plugin.getConfig().getDouble("exile-border.center-x", 0.0);
-        double centerZ = plugin.getConfig().getDouble("exile-border.center-z", 0.0);
-        double minDistance = plugin.getConfig().getDouble("exile-border.exile-spawn-min-distance", 2005000.0);
-        double maxDistance = plugin.getConfig().getDouble("exile-border.exile-spawn-max-distance", 2300000.0);
-        double exileRadius = plugin.getConfig().getDouble("exile-border.radius-blocks", 2000000.0);
+        int minCoord = (int) Math.round(plugin.getConfig().getDouble("exile-border.exile-spawn-min-distance", 2000000.0));
+        int maxCoord = (int) Math.round(plugin.getConfig().getDouble("exile-border.exile-spawn-max-distance", 2300000.0));
         int tries = plugin.getConfig().getInt("exile-border.safe-teleport-tries", 100);
 
         ThreadLocalRandom random = ThreadLocalRandom.current();
 
         for (int i = 0; i < tries; i++) {
-            double angle = random.nextDouble(0, Math.PI * 2);
-            double distance = random.nextDouble(minDistance, maxDistance);
+            int x = random.nextInt(minCoord, maxCoord + 1);
+            int z = random.nextInt(minCoord, maxCoord + 1);
 
-            int x = (int) Math.round(centerX + Math.cos(angle) * distance);
-            int z = (int) Math.round(centerZ + Math.sin(angle) * distance);
+            if (random.nextBoolean()) x = -x;
+            if (random.nextBoolean()) z = -z;
 
-            double actualDistance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(z - centerZ, 2));
-            if (actualDistance <= exileRadius) {
+            if (Math.abs(x) < 2000000 || Math.abs(z) < 2000000) {
                 continue;
             }
 
@@ -483,12 +531,6 @@ public class ExileService {
         }
 
         return true;
-    }
-
-    private double distanceFromConfiguredCenter(Location location, double centerX, double centerZ) {
-        double dx = location.getX() - centerX;
-        double dz = location.getZ() - centerZ;
-        return Math.sqrt(dx * dx + dz * dz);
     }
 
     public String serializeLocation(Location loc) {
