@@ -1,0 +1,78 @@
+name: AllayMc
+version: 1.0.0
+main: com.allaymc.exile.AllayMcPlugin
+api-version: "1.21"
+author: AllayMc
+description: Exile system plugin with timer, separate exile inventory and staff controls
+softdepend: [LuckPerms]
+
+commands:
+  exile:
+    description: Check your exile status or another player's exile status
+    usage: /exile [player]
+    permission: allaymc.exile.self
+
+  exileadd:
+    description: Exile a player for a time
+    usage: /exileadd <player> <time> [reason]
+    permission: allaymc.exile.add
+
+  exilefree:
+    description: Free a player from exile
+    usage: /exilefree <player>
+    permission: allaymc.exile.free
+
+  exileextend:
+    description: Extend exile time
+    usage: /exileextend <player> <time>
+    permission: allaymc.exile.extend
+
+  exileremove:
+    description: Permanently remove a player from the server
+    usage: /exileremove <player>
+    permission: allaymc.exile.remove
+
+  exilecount:
+    description: Check how many times a player was exiled
+    usage: /exilecount <player>
+    permission: allaymc.exile.count
+
+permissions:
+  allaymc.exile.self:
+    description: Use /exile on self
+    default: true
+
+  allaymc.exile.others:
+    description: Check exile status of others using /exile <player>
+    default: op
+
+  allaymc.exile.add:
+    description: Exile a player
+    default: op
+
+  allaymc.exile.free:
+    description: Free a player from exile
+    default: op
+
+  allaymc.exile.extend:
+    description: Extend a player's exile
+    default: op
+
+  allaymc.exile.remove:
+    description: Permanently remove a player from server
+    default: op
+
+  allaymc.exile.count:
+    description: Check exile count
+    default: op
+
+  allaymc.exile.admin:
+    description: Full exile admin access
+    default: op
+    children:
+      allaymc.exile.others: true
+      allaymc.exile.add: true
+      allaymc.exile.free: true
+      allaymc.exile.extend: true
+      allaymc.exile.remove: true
+      allaymc.exile.count: true
