@@ -1,5 +1,6 @@
 settings:
   timer-check-seconds: 1
+  border-check-seconds: 1
   save-on-quit: true
   restore-normal-location-on-free: true
 
@@ -9,7 +10,6 @@ server-border:
   center-z: 0.0
   start-size-blocks: 6400.0
   weekly-increase-blocks: 1600.0
-  apply-on-startup: true
 
 exile-border:
   world: "world"
@@ -22,6 +22,14 @@ exile-border:
   avoid-water: true
   avoid-lava: true
   avoid-leaves: true
+
+danger-zone:
+  enabled: true
+  damage-per-tick: 8.0
+  apply-every-seconds: 1
+  warning-message: "&cYou are in the forbidden zone between the server border and exile border!"
+  warning-actionbar: "&4LEAVE THE FORBIDDEN ZONE"
+  warn-every-seconds: 3
 
 return-location:
   use-config-return-if-normal-location-missing: true
