@@ -1,9 +1,9 @@
 name: AllayMc
-version: 1.0.0
+version: 1.1.0
 main: com.allaymc.exile.AllayMcPlugin
 api-version: "1.21"
 author: AllayMc
-description: Exile system plugin with timer, separate exile inventory and staff controls
+description: Exile system plugin with random exile spawns, separate exile inventory and personal exile borders
 softdepend: [LuckPerms]
 
 commands:
@@ -37,37 +37,49 @@ commands:
     usage: /exilecount <player>
     permission: allaymc.exile.count
 
+  exileborder:
+    description: Manage an exiled player's personal border
+    usage: /exileborder <player> | /exileborder <set|expand|shrink|reset|center> <player> [value]
+    permission: allaymc.exile.border.view
+
 permissions:
   allaymc.exile.self:
-    description: Use /exile on self
     default: true
 
   allaymc.exile.others:
-    description: Check exile status of others using /exile <player>
     default: op
 
   allaymc.exile.add:
-    description: Exile a player
     default: op
 
   allaymc.exile.free:
-    description: Free a player from exile
     default: op
 
   allaymc.exile.extend:
-    description: Extend a player's exile
     default: op
 
   allaymc.exile.remove:
-    description: Permanently remove a player from server
     default: op
 
   allaymc.exile.count:
-    description: Check exile count
+    default: op
+
+  allaymc.exile.border.view:
+    default: op
+
+  allaymc.exile.border.set:
+    default: op
+
+  allaymc.exile.border.expand:
+    default: op
+
+  allaymc.exile.border.shrink:
+    default: op
+
+  allaymc.exile.border.reset:
     default: op
 
   allaymc.exile.admin:
-    description: Full exile admin access
     default: op
     children:
       allaymc.exile.others: true
@@ -76,3 +88,8 @@ permissions:
       allaymc.exile.extend: true
       allaymc.exile.remove: true
       allaymc.exile.count: true
+      allaymc.exile.border.view: true
+      allaymc.exile.border.set: true
+      allaymc.exile.border.expand: true
+      allaymc.exile.border.shrink: true
+      allaymc.exile.border.reset: true
