@@ -37,11 +37,70 @@ public class ExileService {
                 long remaining = data.getExileEndTime() - System.currentTimeMillis();
                 if (remaining <= 0) {
                     freePlayer(player, true);
-                } else {
-                    applyPersonalBorder(player, data);
                 }
             }
         }, 20L, periodTicks);
+    }
+
+    public void applyGlobalServerBorderFromConfig() {
+        if (!plugin.getConfig().getBoolean("server-border.apply-on-startup", true)) {
+            return;
+        }
+
+        String worldName = plugin.getConfig().getString("server-border.world", "world");
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            plugin.getLogger().warning("Could not apply server border: world not found: " + worldName);
+            return;
+        }
+
+        WorldBorder border = world.getWorldBorder();
+        border.setCenter(
+                plugin.getConfig().getDouble("server-border.center-x", 0.0),
+                plugin.getConfig().getDouble("server-border.center-z", 0.0)
+        );
+        border.setSize(plugin.getConfig().getDouble("server-border.start-size-blocks", 6400.0));
+    }
+
+    public double getGlobalServerBorderSize() {
+        String worldName = plugin.getConfig().getString("server-border.world", "world");
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) return -1;
+        return world.getWorldBorder().getSize();
+    }
+
+    public boolean setGlobalServerBorderSize(double newSize) {
+        if (newSize <= 1.0) {
+            return false;
+        }
+
+        String worldName = plugin.getConfig().getString("server-border.world", "world");
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) return false;
+
+        WorldBorder border = world.getWorldBorder();
+        border.setCenter(
+                plugin.getConfig().getDouble("server-border.center-x", 0.0),
+                plugin.getConfig().getDouble("server-border.center-z", 0.0)
+        );
+        border.setSize(newSize);
+
+        plugin.getConfig().set("server-border.start-size-blocks", newSize);
+        plugin.saveConfig();
+        return true;
+    }
+
+    public boolean addGlobalServerBorderSize(double amount) {
+        if (amount <= 0.0) {
+            return false;
+        }
+
+        double current = getGlobalServerBorderSize();
+        if (current <= 0.0) {
+            return false;
+        }
+
+        return setGlobalServerBorderSize(current + amount);
     }
 
     public boolean isExiled(UUID uuid) {
@@ -78,23 +137,16 @@ public class ExileService {
         data.setExileCount(data.getExileCount() + 1);
         data.setReason(reason == null || reason.isBlank() ? "No reason provided" : reason);
         data.setExileLocation(serializeLocation(exileLocation));
-        data.setExileBorderSize(plugin.getConfig().getDouble("border.initial-size", 64.0));
 
         player.teleport(exileLocation);
-        applyPersonalBorder(player, data);
         playerDataManager.save(player.getUniqueId());
 
         String time = TimeUtil.formatDuration(durationMillis);
         player.sendMessage(messageUtil.replace(messageUtil.get("player-exiled-chat"), "%time%", time));
         player.sendMessage(messageUtil.replace(messageUtil.get("player-exiled-reason"), "%reason%", data.getReason()));
-        player.sendMessage(messageUtil.replace(
-                messageUtil.replace(messageUtil.get("player-exiled-location"), "%x%", String.valueOf(exileLocation.getBlockX())),
-                "%z%", String.valueOf(exileLocation.getBlockZ())
-        ));
-        player.sendMessage(messageUtil.replace(
-                messageUtil.get("player-exiled-border"),
-                "%size%", formatBorderSize(data.getExileBorderSize())
-        ));
+        player.sendMessage(messageUtil.get("player-exiled-location")
+                .replace("%x%", String.valueOf(exileLocation.getBlockX()))
+                .replace("%z%", String.valueOf(exileLocation.getBlockZ())));
 
         String title = messageUtil.raw("player-exiled-title");
         String subtitle = messageUtil.replace(messageUtil.raw("player-exiled-subtitle"), "%time%", time);
@@ -138,9 +190,7 @@ public class ExileService {
         data.setExileEndTime(0L);
         data.setReason("No reason provided");
         data.setExileLocation("");
-        data.setExileBorderSize(plugin.getConfig().getDouble("border.initial-size", 64.0));
 
-        clearPersonalBorder(player);
         teleportToReturn(player, data);
         playerDataManager.save(player.getUniqueId());
 
@@ -156,8 +206,6 @@ public class ExileService {
     }
 
     public void removePlayerPermanently(Player player) {
-        clearPersonalBorder(player);
-
         String mode = plugin.getConfig().getString("punishments.exileremove.mode", "kick").toLowerCase();
 
         switch (mode) {
@@ -211,7 +259,6 @@ public class ExileService {
             player.teleport(exileLoc);
         }
 
-        applyPersonalBorder(player, data);
         playerDataManager.save(player.getUniqueId());
     }
 
@@ -231,68 +278,8 @@ public class ExileService {
         }
     }
 
-    public double getBorderSize(UUID uuid) {
-        return playerDataManager.getData(uuid).getExileBorderSize();
-    }
-
-    public boolean setBorderSize(Player player, double newSize) {
-        ExileData data = playerDataManager.getData(player.getUniqueId());
-        if (!data.isExiled()) return false;
-
-        double maxSize = plugin.getConfig().getDouble("border.max-size", 2048.0);
-        newSize = Math.max(1.0, Math.min(newSize, maxSize));
-
-        data.setExileBorderSize(newSize);
-        applyPersonalBorder(player, data);
-        playerDataManager.save(player.getUniqueId());
-        return true;
-    }
-
-    public boolean expandBorder(Player player, double amount) {
-        return setBorderSize(player, getBorderSize(player.getUniqueId()) + amount);
-    }
-
-    public boolean shrinkBorder(Player player, double amount) {
-        return setBorderSize(player, getBorderSize(player.getUniqueId()) - amount);
-    }
-
-    public boolean resetBorder(Player player) {
-        return setBorderSize(player, plugin.getConfig().getDouble("border.initial-size", 64.0));
-    }
-
     public Location getSavedExileLocation(UUID uuid) {
         return deserializeLocation(playerDataManager.getData(uuid).getExileLocation());
-    }
-
-    public void applyPersonalBorder(Player player, ExileData data) {
-        if (!plugin.getConfig().getBoolean("border.enabled", true)) {
-            return;
-        }
-
-        Location center = deserializeLocation(data.getExileLocation());
-        if (center == null || center.getWorld() == null) {
-            return;
-        }
-
-        WorldBorder border = Bukkit.getServer().createWorldBorder();
-        border.setCenter(center.getX(), center.getZ());
-        border.setSize(data.getExileBorderSize());
-        border.setDamageBuffer(plugin.getConfig().getDouble("border.damage-buffer", 5.0));
-        border.setDamageAmount(plugin.getConfig().getDouble("border.damage-amount", 0.2));
-        border.setWarningDistance(plugin.getConfig().getInt("border.warning-distance", 8));
-        border.setWarningTime(plugin.getConfig().getInt("border.warning-time", 10));
-
-        try {
-            player.setWorldBorder(border);
-        } catch (UnsupportedOperationException ignored) {
-        }
-    }
-
-    public void clearPersonalBorder(Player player) {
-        try {
-            player.setWorldBorder(null);
-        } catch (UnsupportedOperationException ignored) {
-        }
     }
 
     private void saveNormalState(Player player, ExileData data) {
@@ -385,22 +372,32 @@ public class ExileService {
     }
 
     private Location generateRandomExileLocation() {
-        String worldName = plugin.getConfig().getString("exile.world");
+        String worldName = plugin.getConfig().getString("exile-border.world", "world");
         World world = Bukkit.getWorld(worldName);
         if (world == null) return null;
 
-        int minRadius = plugin.getConfig().getInt("exile.min-radius", 2000000);
-        int maxRadius = plugin.getConfig().getInt("exile.max-radius", 2200000);
-        int tries = plugin.getConfig().getInt("exile.safe-teleport-tries", 100);
+        double centerX = plugin.getConfig().getDouble("exile-border.center-x", 0.0);
+        double centerZ = plugin.getConfig().getDouble("exile-border.center-z", 0.0);
+        double minDistance = plugin.getConfig().getDouble("exile-border.exile-spawn-min-distance", 2005000.0);
+        double maxDistance = plugin.getConfig().getDouble("exile-border.exile-spawn-max-distance", 2300000.0);
+        int tries = plugin.getConfig().getInt("exile-border.safe-teleport-tries", 100);
 
         ThreadLocalRandom random = ThreadLocalRandom.current();
 
         for (int i = 0; i < tries; i++) {
             double angle = random.nextDouble(0, Math.PI * 2);
-            double distance = random.nextDouble(minRadius, maxRadius + 1.0);
+            double distance = random.nextDouble(minDistance, maxDistance);
 
-            int x = (int) Math.round(Math.cos(angle) * distance);
-            int z = (int) Math.round(Math.sin(angle) * distance);
+            int x = (int) Math.round(centerX + Math.cos(angle) * distance);
+            int z = (int) Math.round(centerZ + Math.sin(angle) * distance);
+
+            double dx = x - centerX;
+            double dz = z - centerZ;
+            double actualDistance = Math.sqrt(dx * dx + dz * dz);
+
+            if (actualDistance <= plugin.getConfig().getDouble("exile-border.radius-blocks", 2000000.0)) {
+                continue;
+            }
 
             int y = world.getHighestBlockYAt(x, z) + 1;
             if (y < world.getMinHeight() + 1 || y > world.getMaxHeight()) {
@@ -430,17 +427,17 @@ public class ExileService {
     private boolean isSafeGround(Material material) {
         if (material.isAir()) return false;
 
-        if (plugin.getConfig().getBoolean("exile.avoid-water", true) &&
+        if (plugin.getConfig().getBoolean("exile-border.avoid-water", true) &&
                 (material == Material.WATER || material == Material.KELP || material == Material.SEAGRASS)) {
             return false;
         }
 
-        if (plugin.getConfig().getBoolean("exile.avoid-lava", true) &&
+        if (plugin.getConfig().getBoolean("exile-border.avoid-lava", true) &&
                 (material == Material.LAVA || material == Material.MAGMA_BLOCK)) {
             return false;
         }
 
-        if (plugin.getConfig().getBoolean("exile.avoid-leaves", true) &&
+        if (plugin.getConfig().getBoolean("exile-border.avoid-leaves", true) &&
                 material.name().endsWith("_LEAVES")) {
             return false;
         }
@@ -471,12 +468,5 @@ public class ExileService {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    private String formatBorderSize(double size) {
-        if (size == Math.floor(size)) {
-            return String.valueOf((int) size);
-        }
-        return String.format("%.2f", size);
     }
 }
