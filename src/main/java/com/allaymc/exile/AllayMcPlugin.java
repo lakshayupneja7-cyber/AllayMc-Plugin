@@ -61,6 +61,7 @@ public class AllayMcPlugin extends JavaPlugin {
         bind("exileextend", exileCommand);
         bind("exileremove", exileCommand);
         bind("exilecount", exileCommand);
+        bind("exileborder", exileCommand);
     }
 
     private void bind(String name, ExileCommand executor) {
