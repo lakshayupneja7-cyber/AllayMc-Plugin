@@ -9,6 +9,8 @@ import com.allaymc.exile.util.MessageUtil;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+
 public class AllayMcPlugin extends JavaPlugin {
 
     private static AllayMcPlugin instance;
@@ -41,8 +43,12 @@ public class AllayMcPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        exileService.saveAllOnlineExileStates();
-        playerDataManager.saveAll();
+        if (exileService != null) {
+            exileService.saveAllOnlineExileStates();
+        }
+        if (playerDataManager != null) {
+            playerDataManager.saveAll();
+        }
         getLogger().info("AllayMc disabled.");
     }
 
@@ -75,7 +81,7 @@ public class AllayMcPlugin extends JavaPlugin {
     }
 
     private void saveResourceIfNotExists(String path) {
-        if (!new java.io.File(getDataFolder(), path).exists()) {
+        if (!new File(getDataFolder(), path).exists()) {
             saveResource(path, false);
         }
     }
