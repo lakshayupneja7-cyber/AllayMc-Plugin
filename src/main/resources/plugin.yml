@@ -1,9 +1,9 @@
 name: AllayMc
-version: 1.2.0
+version: 1.3.0
 main: com.allaymc.exile.AllayMcPlugin
 api-version: "1.21"
 author: AllayMc
-description: Exile system plugin with random exile spawns beyond 2M and global server border controls
+description: A Unique AllayMc Exile System 
 softdepend: [LuckPerms]
 
 commands:
@@ -38,7 +38,7 @@ commands:
     permission: allaymc.exile.count
 
   serverborder:
-    description: Manage the global server border
+    description: Manage the custom global server border
     usage: /serverborder | /serverborder set <blocks> | /serverborder add <blocks> | /serverborder chunks
     permission: allaymc.serverborder.view
 
