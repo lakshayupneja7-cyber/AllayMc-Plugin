@@ -37,8 +37,8 @@ public class AllayMcPlugin extends JavaPlugin {
         registerCommands();
         registerListeners();
 
-        exileService.applyGlobalServerBorderFromConfig();
         exileService.startTimerTask();
+        exileService.startDangerZoneTask();
 
         getLogger().info("AllayMc enabled.");
     }
