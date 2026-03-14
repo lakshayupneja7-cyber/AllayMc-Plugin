@@ -13,10 +13,8 @@ server-border:
 
 exile-border:
   world: "world"
-  center-x: 0.0
-  center-z: 0.0
   radius-blocks: 2000000.0
-  exile-spawn-min-distance: 2005000.0
+  exile-spawn-min-distance: 2000000.0
   exile-spawn-max-distance: 2300000.0
   safe-teleport-tries: 100
   avoid-water: true
@@ -28,8 +26,18 @@ danger-zone:
   damage-per-tick: 8.0
   apply-every-seconds: 1
   warning-message: "&cYou are in the forbidden zone between the server border and exile border!"
-  warning-actionbar: "&4LEAVE THE FORBIDDEN ZONE"
   warn-every-seconds: 3
+
+barrier:
+  enabled: true
+  warn-every-ms: 1200
+  particles: true
+  sounds: true
+  main-message: "&cA mysterious force blocks you at the server border."
+  exile-message-exiled: "&cThe exile border rejects your return."
+  exile-message-normal: "&cThe exile lands reject you."
+  main-action: "SERVER BORDER"
+  exile-action: "EXILE BORDER"
 
 return-location:
   use-config-return-if-normal-location-missing: true
