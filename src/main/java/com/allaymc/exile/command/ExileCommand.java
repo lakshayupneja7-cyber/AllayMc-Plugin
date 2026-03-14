@@ -8,6 +8,7 @@ import com.allaymc.exile.util.MessageUtil;
 import com.allaymc.exile.util.TimeUtil;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -18,6 +19,7 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class ExileCommand implements CommandExecutor, TabCompleter {
@@ -36,13 +38,14 @@ public class ExileCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        return switch (command.getName().toLowerCase()) {
+        return switch (command.getName().toLowerCase(Locale.ROOT)) {
             case "exile" -> handleExile(sender, args);
             case "exileadd" -> handleExileAdd(sender, args);
             case "exilefree" -> handleExileFree(sender, args);
             case "exileextend" -> handleExileExtend(sender, args);
             case "exileremove" -> handleExileRemove(sender, args);
             case "exilecount" -> handleExileCount(sender, args);
+            case "exileborder" -> handleExileBorder(sender, args);
             default -> false;
         };
     }
@@ -66,6 +69,15 @@ public class ExileCommand implements CommandExecutor, TabCompleter {
             messageUtil.sendRaw(player, messageUtil.replace(messageUtil.get("self-time-left"), "%time%", TimeUtil.formatDuration(remaining)));
             messageUtil.sendRaw(player, messageUtil.replace(messageUtil.get("self-exile-count"), "%count%", String.valueOf(data.getExileCount())));
             messageUtil.sendRaw(player, messageUtil.replace(messageUtil.get("self-reason"), "%reason%", data.getReason()));
+            messageUtil.sendRaw(player, messageUtil.replace(messageUtil.get("self-border-size"), "%size%", stripDecimal(data.getExileBorderSize())));
+
+            Location loc = exileService.getSavedExileLocation(player.getUniqueId());
+            if (loc != null) {
+                String msg = messageUtil.get("self-center")
+                        .replace("%x%", String.valueOf(loc.getBlockX()))
+                        .replace("%z%", String.valueOf(loc.getBlockZ()));
+                messageUtil.sendRaw(player, msg);
+            }
             return true;
         }
 
@@ -76,18 +88,18 @@ public class ExileCommand implements CommandExecutor, TabCompleter {
 
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
         ExileData data = playerDataManager.getData(target.getUniqueId());
+        String targetName = target.getName() == null ? args[0] : target.getName();
 
         if (!data.isExiled()) {
-            messageUtil.sendRaw(sender, messageUtil.replace(messageUtil.get("others-status-inactive"), "%player%", target.getName() == null ? args[0] : target.getName()));
+            messageUtil.sendRaw(sender, messageUtil.replace(messageUtil.get("others-status-inactive"), "%player%", targetName));
             messageUtil.sendRaw(sender, messageUtil.replace(
-                    messageUtil.replace(messageUtil.get("others-exile-count"), "%player%", target.getName() == null ? args[0] : target.getName()),
+                    messageUtil.replace(messageUtil.get("others-exile-count"), "%player%", targetName),
                     "%count%", String.valueOf(data.getExileCount())
             ));
             return true;
         }
 
         long remaining = exileService.getRemaining(target.getUniqueId());
-        String targetName = target.getName() == null ? args[0] : target.getName();
 
         messageUtil.sendRaw(sender, messageUtil.replace(messageUtil.get("others-status-active"), "%player%", targetName));
         messageUtil.sendRaw(sender, messageUtil.replace(
@@ -272,14 +284,252 @@ public class ExileCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleExileBorder(CommandSender sender, String[] args) {
+        if (args.length == 0) {
+            messageUtil.send(sender, "usage-exileborder");
+            return true;
+        }
+
+        if (args.length == 1) {
+            if (!sender.hasPermission("allaymc.exile.border.view")) {
+                messageUtil.send(sender, "no-permission");
+                return true;
+            }
+
+            OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
+            ExileData data = playerDataManager.getData(target.getUniqueId());
+            if (!data.isExiled()) {
+                messageUtil.send(sender, "not-exiled");
+                return true;
+            }
+
+            String targetName = target.getName() == null ? args[0] : target.getName();
+            messageUtil.sendRaw(sender, messageUtil.get("border-info")
+                    .replace("%player%", targetName)
+                    .replace("%size%", stripDecimal(data.getExileBorderSize())));
+
+            Location loc = exileService.getSavedExileLocation(target.getUniqueId());
+            if (loc != null) {
+                messageUtil.sendRaw(sender, messageUtil.get("border-center")
+                        .replace("%player%", targetName)
+                        .replace("%x%", String.valueOf(loc.getBlockX()))
+                        .replace("%z%", String.valueOf(loc.getBlockZ())));
+            }
+            return true;
+        }
+
+        String sub = args[0].toLowerCase(Locale.ROOT);
+
+        return switch (sub) {
+            case "set" -> handleBorderSet(sender, args);
+            case "expand" -> handleBorderExpand(sender, args);
+            case "shrink" -> handleBorderShrink(sender, args);
+            case "reset" -> handleBorderReset(sender, args);
+            case "center" -> handleBorderCenter(sender, args);
+            default -> {
+                messageUtil.send(sender, "usage-exileborder");
+                yield true;
+            }
+        };
+    }
+
+    private boolean handleBorderSet(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("allaymc.exile.border.set")) {
+            messageUtil.send(sender, "no-permission");
+            return true;
+        }
+        if (args.length != 3) {
+            messageUtil.send(sender, "usage-exileborder");
+            return true;
+        }
+
+        Player target = Bukkit.getPlayerExact(args[1]);
+        if (target == null) {
+            messageUtil.send(sender, "player-not-found");
+            return true;
+        }
+        if (!exileService.isExiled(target.getUniqueId())) {
+            messageUtil.send(sender, "not-exiled");
+            return true;
+        }
+
+        double value = parsePositiveDouble(args[2]);
+        if (value <= 0) {
+            messageUtil.send(sender, "invalid-number");
+            return true;
+        }
+
+        exileService.setBorderSize(target, value);
+        messageUtil.sendRaw(sender, messageUtil.get("border-set")
+                .replace("%player%", target.getName())
+                .replace("%size%", stripDecimal(exileService.getBorderSize(target.getUniqueId()))));
+        return true;
+    }
+
+    private boolean handleBorderExpand(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("allaymc.exile.border.expand")) {
+            messageUtil.send(sender, "no-permission");
+            return true;
+        }
+        if (args.length != 3) {
+            messageUtil.send(sender, "usage-exileborder");
+            return true;
+        }
+
+        Player target = Bukkit.getPlayerExact(args[1]);
+        if (target == null) {
+            messageUtil.send(sender, "player-not-found");
+            return true;
+        }
+        if (!exileService.isExiled(target.getUniqueId())) {
+            messageUtil.send(sender, "not-exiled");
+            return true;
+        }
+
+        double value = parsePositiveDouble(args[2]);
+        if (value <= 0) {
+            messageUtil.send(sender, "invalid-number");
+            return true;
+        }
+
+        exileService.expandBorder(target, value);
+        messageUtil.sendRaw(sender, messageUtil.get("border-expanded")
+                .replace("%player%", target.getName())
+                .replace("%size%", stripDecimal(value)));
+        return true;
+    }
+
+    private boolean handleBorderShrink(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("allaymc.exile.border.shrink")) {
+            messageUtil.send(sender, "no-permission");
+            return true;
+        }
+        if (args.length != 3) {
+            messageUtil.send(sender, "usage-exileborder");
+            return true;
+        }
+
+        Player target = Bukkit.getPlayerExact(args[1]);
+        if (target == null) {
+            messageUtil.send(sender, "player-not-found");
+            return true;
+        }
+        if (!exileService.isExiled(target.getUniqueId())) {
+            messageUtil.send(sender, "not-exiled");
+            return true;
+        }
+
+        double value = parsePositiveDouble(args[2]);
+        if (value <= 0) {
+            messageUtil.send(sender, "invalid-number");
+            return true;
+        }
+
+        exileService.shrinkBorder(target, value);
+        messageUtil.sendRaw(sender, messageUtil.get("border-shrunk")
+                .replace("%player%", target.getName())
+                .replace("%size%", stripDecimal(value)));
+        return true;
+    }
+
+    private boolean handleBorderReset(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("allaymc.exile.border.reset")) {
+            messageUtil.send(sender, "no-permission");
+            return true;
+        }
+        if (args.length != 2) {
+            messageUtil.send(sender, "usage-exileborder");
+            return true;
+        }
+
+        Player target = Bukkit.getPlayerExact(args[1]);
+        if (target == null) {
+            messageUtil.send(sender, "player-not-found");
+            return true;
+        }
+        if (!exileService.isExiled(target.getUniqueId())) {
+            messageUtil.send(sender, "not-exiled");
+            return true;
+        }
+
+        exileService.resetBorder(target);
+        messageUtil.send(sender, "border-reset");
+        return true;
+    }
+
+    private boolean handleBorderCenter(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("allaymc.exile.border.view")) {
+            messageUtil.send(sender, "no-permission");
+            return true;
+        }
+        if (args.length != 2) {
+            messageUtil.send(sender, "usage-exileborder");
+            return true;
+        }
+
+        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+        if (!exileService.isExiled(target.getUniqueId())) {
+            messageUtil.send(sender, "not-exiled");
+            return true;
+        }
+
+        Location loc = exileService.getSavedExileLocation(target.getUniqueId());
+        if (loc == null) {
+            messageUtil.send(sender, "not-exiled");
+            return true;
+        }
+
+        String targetName = target.getName() == null ? args[1] : target.getName();
+        messageUtil.sendRaw(sender, messageUtil.get("border-center")
+                .replace("%player%", targetName)
+                .replace("%x%", String.valueOf(loc.getBlockX()))
+                .replace("%z%", String.valueOf(loc.getBlockZ())));
+        return true;
+    }
+
+    private double parsePositiveDouble(String input) {
+        try {
+            return Double.parseDouble(input);
+        } catch (NumberFormatException ex) {
+            return -1;
+        }
+    }
+
+    private String stripDecimal(double value) {
+        if (value == Math.floor(value)) {
+            return String.valueOf((int) value);
+        }
+        return String.format(Locale.US, "%.2f", value);
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        String cmd = command.getName().toLowerCase();
+        String cmd = command.getName().toLowerCase(Locale.ROOT);
+
+        if (cmd.equals("exileborder")) {
+            if (args.length == 1) {
+                List<String> base = new ArrayList<>(List.of("set", "expand", "shrink", "reset", "center"));
+                base.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList());
+                return base.stream()
+                        .filter(s -> s.toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT)))
+                        .distinct()
+                        .collect(Collectors.toList());
+            }
+            if (args.length == 2 && List.of("set", "expand", "shrink", "reset", "center").contains(args[0].toLowerCase(Locale.ROOT))) {
+                return Bukkit.getOnlinePlayers().stream()
+                        .map(Player::getName)
+                        .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT)))
+                        .collect(Collectors.toList());
+            }
+            if (args.length == 3 && List.of("set", "expand", "shrink").contains(args[0].toLowerCase(Locale.ROOT))) {
+                return List.of("16", "32", "64", "128", "256");
+            }
+        }
 
         if (args.length == 1 && List.of("exile", "exileadd", "exilefree", "exileextend", "exileremove", "exilecount").contains(cmd)) {
             return Bukkit.getOnlinePlayers().stream()
                     .map(Player::getName)
-                    .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))
+                    .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT)))
                     .collect(Collectors.toList());
         }
 
