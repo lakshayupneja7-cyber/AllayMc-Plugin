@@ -5,11 +5,13 @@ settings:
 
 exile:
   world: "world"
-  x: 1000000.5
-  y: 80.0
-  z: 1000000.5
-  yaw: 0.0
-  pitch: 0.0
+  random-spawn: true
+  min-radius: 2000000
+  max-radius: 2200000
+  safe-teleport-tries: 100
+  avoid-water: true
+  avoid-lava: true
+  avoid-leaves: true
 
 return-location:
   use-config-return-if-normal-location-missing: true
@@ -25,9 +27,18 @@ inventory:
   clear-player-on-exile: true
   restore-normal-on-free: true
 
+border:
+  enabled: true
+  initial-size: 64.0
+  max-size: 2048.0
+  damage-buffer: 5.0
+  damage-amount: 0.2
+  warning-distance: 8
+  warning-time: 10
+
 punishments:
   exileremove:
-    mode: "kick" # kick / ban / whitelist-remove
+    mode: "kick"
     kick-message: "&cYou have been permanently removed from the server."
     ban-reason: "Removed from server by exile punishment."
 
