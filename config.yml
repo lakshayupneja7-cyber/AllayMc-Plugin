@@ -1,0 +1,35 @@
+settings:
+  timer-check-seconds: 1
+  save-on-quit: true
+  restore-normal-location-on-free: true
+
+exile:
+  world: "world"
+  x: 1000000.5
+  y: 80.0
+  z: 1000000.5
+  yaw: 0.0
+  pitch: 0.0
+
+return-location:
+  use-config-return-if-normal-location-missing: true
+  world: "world"
+  x: 0.5
+  y: 64.0
+  z: 0.5
+  yaw: 0.0
+  pitch: 0.0
+
+inventory:
+  keep-separate-exile-inventory: true
+  clear-player-on-exile: true
+  restore-normal-on-free: true
+
+punishments:
+  exileremove:
+    mode: "kick" # kick / ban / whitelist-remove
+    kick-message: "&cYou have been permanently removed from the server."
+    ban-reason: "Removed from server by exile punishment."
+
+formats:
+  default-time-unit: "m"
