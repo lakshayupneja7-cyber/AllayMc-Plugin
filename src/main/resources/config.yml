@@ -3,11 +3,21 @@ settings:
   save-on-quit: true
   restore-normal-location-on-free: true
 
-exile:
+server-border:
   world: "world"
-  random-spawn: true
-  min-radius: 2000000
-  max-radius: 2200000
+  center-x: 0.0
+  center-z: 0.0
+  start-size-blocks: 6400.0
+  weekly-increase-blocks: 1600.0
+  apply-on-startup: true
+
+exile-border:
+  world: "world"
+  center-x: 0.0
+  center-z: 0.0
+  radius-blocks: 2000000.0
+  exile-spawn-min-distance: 2005000.0
+  exile-spawn-max-distance: 2300000.0
   safe-teleport-tries: 100
   avoid-water: true
   avoid-lava: true
@@ -26,15 +36,6 @@ inventory:
   keep-separate-exile-inventory: true
   clear-player-on-exile: true
   restore-normal-on-free: true
-
-border:
-  enabled: true
-  initial-size: 64.0
-  max-size: 2048.0
-  damage-buffer: 5.0
-  damage-amount: 0.2
-  warning-distance: 8
-  warning-time: 10
 
 punishments:
   exileremove:
