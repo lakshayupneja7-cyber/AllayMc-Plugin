@@ -61,6 +61,8 @@ public class PlayerDataManager {
             data.setExileOffhand(config.getString(key + ".exileOffhand", ""));
 
             data.setNormalLocation(config.getString(key + ".normalLocation", ""));
+            data.setExileLocation(config.getString(key + ".exileLocation", ""));
+            data.setExileBorderSize(config.getDouble(key + ".exileBorderSize", 64.0));
 
             cache.put(uuid, data);
         }
@@ -85,6 +87,8 @@ public class PlayerDataManager {
         config.set(base + ".exileOffhand", data.getExileOffhand());
 
         config.set(base + ".normalLocation", data.getNormalLocation());
+        config.set(base + ".exileLocation", data.getExileLocation());
+        config.set(base + ".exileBorderSize", data.getExileBorderSize());
 
         saveFile();
     }
