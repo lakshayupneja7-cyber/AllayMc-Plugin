@@ -291,11 +291,6 @@ public class ExileCommand implements CommandExecutor, TabCompleter {
             }
 
             double blocks = exileService.getGlobalServerBorderSize();
-            if (blocks <= 0) {
-                messageUtil.sendRaw(sender, "&cCould not read server border.");
-                return true;
-            }
-
             messageUtil.sendRaw(sender, messageUtil.get("server-border-info")
                     .replace("%blocks%", stripDecimal(blocks))
                     .replace("%chunks%", stripDecimal(blocks / 16.0)));
@@ -321,11 +316,7 @@ public class ExileCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
 
-                if (!exileService.setGlobalServerBorderSize(value)) {
-                    messageUtil.sendRaw(sender, "&cCould not set server border.");
-                    return true;
-                }
-
+                exileService.setGlobalServerBorderSize(value);
                 messageUtil.sendRaw(sender, messageUtil.get("server-border-set")
                         .replace("%blocks%", stripDecimal(value)));
                 return true;
@@ -347,16 +338,12 @@ public class ExileCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
 
-                double before = exileService.getGlobalServerBorderSize();
-                if (!exileService.addGlobalServerBorderSize(value)) {
-                    messageUtil.sendRaw(sender, "&cCould not increase server border.");
-                    return true;
-                }
-
+                exileService.addGlobalServerBorderSize(value);
                 double after = exileService.getGlobalServerBorderSize();
+
                 messageUtil.sendRaw(sender, messageUtil.get("server-border-added")
                         .replace("%blocks%", stripDecimal(value))
-                        .replace("%new_size%", stripDecimal(after > 0 ? after : before + value)));
+                        .replace("%new_size%", stripDecimal(after)));
                 return true;
             }
 
@@ -367,11 +354,6 @@ public class ExileCommand implements CommandExecutor, TabCompleter {
                 }
 
                 double blocks = exileService.getGlobalServerBorderSize();
-                if (blocks <= 0) {
-                    messageUtil.sendRaw(sender, "&cCould not read server border.");
-                    return true;
-                }
-
                 messageUtil.sendRaw(sender, "&eServer border: &6" + stripDecimal(blocks / 16.0) + " chunks");
                 return true;
             }
