@@ -37,7 +37,9 @@ public class AllayMcPlugin extends JavaPlugin {
         registerCommands();
         registerListeners();
 
+        exileService.applyGlobalServerBorderFromConfig();
         exileService.startTimerTask();
+
         getLogger().info("AllayMc enabled.");
     }
 
@@ -61,7 +63,7 @@ public class AllayMcPlugin extends JavaPlugin {
         bind("exileextend", exileCommand);
         bind("exileremove", exileCommand);
         bind("exilecount", exileCommand);
-        bind("exileborder", exileCommand);
+        bind("serverborder", exileCommand);
     }
 
     private void bind(String name, ExileCommand executor) {
