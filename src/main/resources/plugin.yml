@@ -1,9 +1,9 @@
 name: AllayMc
-version: 1.1.0
+version: 1.2.0
 main: com.allaymc.exile.AllayMcPlugin
 api-version: "1.21"
 author: AllayMc
-description: Exile system plugin with random exile spawns, separate exile inventory and personal exile borders
+description: Exile system plugin with random exile spawns beyond 2M and global server border controls
 softdepend: [LuckPerms]
 
 commands:
@@ -37,10 +37,10 @@ commands:
     usage: /exilecount <player>
     permission: allaymc.exile.count
 
-  exileborder:
-    description: Manage an exiled player's personal border
-    usage: /exileborder <player> | /exileborder <set|expand|shrink|reset|center> <player> [value]
-    permission: allaymc.exile.border.view
+  serverborder:
+    description: Manage the global server border
+    usage: /serverborder | /serverborder set <blocks> | /serverborder add <blocks> | /serverborder chunks
+    permission: allaymc.serverborder.view
 
 permissions:
   allaymc.exile.self:
@@ -64,20 +64,21 @@ permissions:
   allaymc.exile.count:
     default: op
 
-  allaymc.exile.border.view:
+  allaymc.serverborder.view:
     default: op
 
-  allaymc.exile.border.set:
+  allaymc.serverborder.set:
     default: op
 
-  allaymc.exile.border.expand:
+  allaymc.serverborder.add:
     default: op
 
-  allaymc.exile.border.shrink:
+  allaymc.serverborder.admin:
     default: op
-
-  allaymc.exile.border.reset:
-    default: op
+    children:
+      allaymc.serverborder.view: true
+      allaymc.serverborder.set: true
+      allaymc.serverborder.add: true
 
   allaymc.exile.admin:
     default: op
@@ -88,8 +89,3 @@ permissions:
       allaymc.exile.extend: true
       allaymc.exile.remove: true
       allaymc.exile.count: true
-      allaymc.exile.border.view: true
-      allaymc.exile.border.set: true
-      allaymc.exile.border.expand: true
-      allaymc.exile.border.shrink: true
-      allaymc.exile.border.reset: true
