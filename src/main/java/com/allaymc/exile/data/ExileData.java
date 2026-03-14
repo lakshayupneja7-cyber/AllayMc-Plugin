@@ -18,8 +18,6 @@ public class ExileData {
     private String normalLocation = "";
     private String exileLocation = "";
 
-    private double exileBorderSize = 64.0;
-
     public boolean isExiled() {
         return exiled;
     }
@@ -114,13 +112,5 @@ public class ExileData {
 
     public void setExileLocation(String exileLocation) {
         this.exileLocation = exileLocation;
-    }
-
-    public double getExileBorderSize() {
-        return exileBorderSize;
-    }
-
-    public void setExileBorderSize(double exileBorderSize) {
-        this.exileBorderSize = exileBorderSize;
     }
 }
